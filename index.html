@@ -96,6 +96,7 @@
 
     /* ── SCREENS ── */
     .screen{display:none;animation:fadeUp 0.3s cubic-bezier(0.4,0,0.2,1) both}
+    #screen-home,#screen-verify{animation:none}
     .screen.active{display:block}
 
     /* ── VERIFY ── */
@@ -883,8 +884,7 @@
     const fullName = regUser?.name || userName;
     const gamertag = regUser?.gamertag || '—';
     const phone    = regUser?.phone    || '—';
-    const since    = regUser?.created_at;
-    const sinceStr = since ? new Date(since).toLocaleDateString('pt-BR', { month:'short', year:'numeric' }) : '—';
+    const since    = regUser?.created_at;    const sinceStr = since ? new Date(since).toLocaleDateString('pt-BR', { month:'short', year:'numeric' }) : '—';
 
     // Preenche os campos da home
     document.getElementById('home-display-name').textContent    = fullName;
