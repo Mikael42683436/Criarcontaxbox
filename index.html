@@ -8,7 +8,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://accounts.google.com/gsi/client" async onload="initGoogleAuth()"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -613,10 +612,8 @@
   const SERVICE_ID  = 'service_r0q6wrc';
   const TEMPLATE_ID = 'template_dafe72a';
 
-  /* ====== GOOGLE CLIENT ID ====== */
-  // Preencha com o seu Client ID do Google Cloud Console após configuração
-  const GOOGLE_CLIENT_ID = 'SEU_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
-  let googleTokenClient = null;
+  // OAuth via Supabase — sem Client ID necessário
+  let googleTokenClient = null; // mantido por compatibilidade
 
   /* ====== STATE ====== */
   let verificationCode = '';
@@ -637,45 +634,19 @@
     }
   });
 
-  /* ====== GOOGLE — INICIALIZA CLIENTE GSI ====== */
-  function initGoogleAuth() {
-    if (!GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID.startsWith('SEU_')) return;
-    try {
-      googleTokenClient = google.accounts.oauth2.initTokenClient({
-        client_id: GOOGLE_CLIENT_ID,
-        scope: 'email profile openid',
-        prompt: 'select_account',
-        callback: handleGoogleTokenResponse
-      });
-    } catch(e) { console.error('GSI init error', e); }
-  }
-
-  /* ====== GOOGLE — RECEBE TOKEN E BUSCA DADOS ====== */
-  async function handleGoogleTokenResponse(tokenResponse) {
-    const activeScreen = document.querySelector('.screen.active')?.id;
-    const activeBtn = activeScreen === 'screen-login' ? 'btn-google-login' : 'btn-google-reg';
-    setBtn(activeBtn, false);
-
-    if (tokenResponse.error) {
-      if (tokenResponse.error !== 'access_denied') {
-        showToast('❌ Erro Google: ' + (tokenResponse.error_description || tokenResponse.error));
-      }
-      return;
+  /* ====== GOOGLE AUTH CALLBACK (retorno do redirect OAuth) ====== */
+  (async function handleOAuthCallback(){
+    const { data: { session } } = await supa.auth.getSession();
+    if(session && session.user){
+      const u     = session.user;
+      const email = u.email.toLowerCase();
+      const name  = u.user_metadata?.full_name || u.user_metadata?.name || email.split('@')[0];
+      await supa.auth.signOut();
+      setTimeout(() => handleGoogleUserInfo(email, name), 600);
     }
+  })();
 
-    try {
-      const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-        headers: { Authorization: 'Bearer ' + tokenResponse.access_token }
-      });
-      const user = await res.json();
-      const email = (user.email || '').toLowerCase();
-      const name  = user.name || user.given_name || email.split('@')[0];
-      if (!email) { showToast('❌ Não foi possível obter o e-mail do Google.'); return; }
-      handleGoogleUserInfo(email, name);
-    } catch(e) {
-      showToast('❌ Erro ao obter dados do Google. Tente novamente.');
-    }
-  }
+  function initGoogleAuth(){ /* não usado — OAuth via Supabase redirect */ }
 
   /* ====== GOOGLE — PROCESSA EMAIL/NOME OBTIDOS ====== */
   async function handleGoogleUserInfo(email, name) {
@@ -946,16 +917,20 @@
     await sendOTP(email, displayName);
   }
 
-  /* ====== GOOGLE — ABRE POPUP DE SELEÇÃO DE CONTA ====== */
-  function doGoogleAuth(){
-    if (!googleTokenClient) {
-      showToast('⚠️ Login com Google ainda não configurado. Configure o Client ID.');
-      return;
-    }
+  /* ====== GOOGLE — REDIRECIONA PARA LOGIN GOOGLE VIA SUPABASE ====== */
+  async function doGoogleAuth(){
     const activeScreen = document.querySelector('.screen.active')?.id;
     const activeBtn = activeScreen === 'screen-login' ? 'btn-google-login' : 'btn-google-reg';
     setBtn(activeBtn, true);
-    googleTokenClient.requestAccessToken();
+    const { error } = await supa.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.href }
+    });
+    if(error){
+      showToast('❌ Erro ao iniciar login com Google: ' + error.message);
+      setBtn(activeBtn, false);
+    }
+    // Se sucesso, a página redireciona para o Google — botão fica loading até isso acontecer
   }
 
   /* ====== GOOGLE REGISTER SUBMIT ====== */
