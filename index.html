@@ -1098,26 +1098,7 @@
   }
 
   /* ====== FORGOT PASSWORD ====== */
-  async function doForgotPassword(){
-    const email = document.getElementById('forgot-email').value.trim().toLowerCase();
-
-    if(!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
-      setError('forgot-email','h-forgot-email','Digite um e-mail válido');
-      return;
-    }
-
-    setBtn('btn-forgot', true);
-
-    // Verifica se existe em registered_users OU profiles
-    const { data: regUser } = await supa.from('registered_users').select('name').eq('email', email.toLowerCase()).maybeSingle();
-    const { data: profUser } = await supa.from('profiles').select('full_name').eq('email', email.toLowerCase()).maybeSingle();
-
-    if(!regUser && !profUser){
-      showToast('❌ Nenhuma conta encontrada com este e-mail.');
-      setError('forgot-email','h-forgot-email','E-mail não cadastrado');
-      setBtn('btn-forgot', false);
-      return;
-    }
+  
 
     userEmail = email;
     userName  = regUser?.name || profUser?.full_name || email.split('@')[0];
@@ -1134,28 +1115,7 @@
   }
 
   /* ====== NEW PASSWORD (after clicking recovery link) ====== */
-  async function doNewPassword(){
-    const senha  = document.getElementById('new-senha').value;
-    const senha2 = document.getElementById('new-senha2').value;
-
-    let ok = true;
-    if(senha.length < 8){ setError('new-senha','h-new-senha','Mínimo 8 caracteres'); ok=false; }
-    if(senha !== senha2){ setError('new-senha2','h-new-senha2','As senhas não coincidem'); ok=false; }
-    if(!ok) return;
-
-    setBtn('btn-new-password', true);
-
-    // updateUser exige sessão ativa — se não tiver, erro esperado do Supabase
-    const { error } = await supa.auth.updateUser({ password: senha });
-
-    setBtn('btn-new-password', false);
-
-    if(error){
-      // Tenta via admin RPC como fallback (se configurado)
-      showToast('❌ Erro ao atualizar: sessão expirou. Tente novamente o fluxo de recuperação.');
-      showScreen('screen-forgot');
-      return;
-    }
+  
 
     await supa.auth.signOut();
     showToast('✅ Senha atualizada! Faça login com a nova senha.');
